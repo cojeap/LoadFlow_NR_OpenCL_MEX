@@ -8,6 +8,8 @@
  *
  * reminder: write doc to all this before it's too late
  *
+ * nned to add  a way to check if i am making the same kernel with different ids    ex kernel1,id1; kernel1,id2
+ *
  * */
 #include "mex_Newton_Raphson_OpenCL.h"
 
@@ -25,7 +27,7 @@ int main(const std::vector<std::vector<double>> &input,
     }
     PSC_electrical_power_system elsys{input};
 
-    PSE_Power_Flow_Data pfData{};
+    //PSE_Power_Flow_Data pfData{};
 
     std::string clKernelSrcFile{"ocl_kernel_src.cl"};
 
@@ -36,7 +38,6 @@ int main(const std::vector<std::vector<double>> &input,
     std::vector<std::string> kernelNames{oclMain.GetKernelNames()};
 
     //oclMain.Run(0, output[id].data);
-    int idx{(int) output.size()};
     int id{-66};
 
     for (const auto &i : kernelNames) {
@@ -51,13 +52,12 @@ int main(const std::vector<std::vector<double>> &input,
                                                         elsys.NodesColSize(),
                                                         elsys.GetNodesData()});
             oclMain.AddOutputBuffer(id, output[0].data.size());
-            idx++;
 
             oclMain.SetKernelParameters(id);
 
             oclMain.SetRange(id,
                              cl::NullRange,
-                             cl::NDRange{(size_t) output[0].rowSize, (size_t) output[0].colSize},
+                             cl::NDRange{(size_t) elsys.NodesRowSize(), (size_t) elsys.NodesColSize()},
                              cl::NullRange);
         }
     }
@@ -82,9 +82,7 @@ int main(const std::vector<std::vector<double>> &input,
 
                 if (!oclMain.KernelExists(id)) {
                     output.emplace_back(E_Matlab_Data_Structure{elsys.NodesRowSize(), 1}); //activePow
-                    idx++;
                     output.emplace_back(E_Matlab_Data_Structure{elsys.NodesRowSize(), 1});//reactivePow
-                    idx++;
 
                     oclMain.MakeKernel(i, id);
 
@@ -121,7 +119,7 @@ int main(const std::vector<std::vector<double>> &input,
 
                 oclMain.SetRange(id,
                                  cl::NDRange(0),
-                                 cl::NDRange{(size_t) output[id].rowSize},
+                                 cl::NDRange{(size_t) elsys.NodesRowSize()},
                                  cl::NullRange);
 
             }
@@ -135,30 +133,6 @@ int main(const std::vector<std::vector<double>> &input,
         powerFlowData.activePower = powerVectors[0];
         powerFlowData.reactivePower = powerVectors[1];
 
-/*
-
-    std::vector<double> powsdasdads;
-    std::vector<double> repowasdasd;
-    for (int i = 0; i < elsys.NodesRowSize(); i++) {
-        double P{0}, Q{0};
-        for (int j = 0; j < elsys.NodesRowSize(); j++) {
-            //(G(i,k)*cos(teta(i,p)-teta(k,p))+B(i,k)*sin(teta(i,p)-teta(k,p))));
-            double Yp = elsys.GetRealAdmittanceMatrix()[i][j] * cos(powerFlowData.angle[i] - powerFlowData.angle[j]) +
-                    elsys.GetImagAdmittanceMatrix()[i][j] * sin(powerFlowData.angle[i] - powerFlowData.angle[j]);
-
-            P += powerFlowData.voltage[i] * powerFlowData.voltage[j] * Yp;
-
-            double Yq = elsys.GetRealAdmittanceMatrix()[i][j] * sin(powerFlowData.angle[i] - powerFlowData.angle[j]) -
-                    elsys.GetImagAdmittanceMatrix()[i][j] * cos(powerFlowData.angle[i] - powerFlowData.angle[j]);
-
-            Q += powerFlowData.voltage[i] * powerFlowData.voltage[j] * Yq;
-
-        }
-
-        powsdasdads.push_back(P);
-        repowasdasd.push_back(Q);
-    }
-*/
 
         std::vector<double> deltaP{}, deltaQ{}, deltaPQ{};
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
@@ -178,13 +152,86 @@ int main(const std::vector<std::vector<double>> &input,
             }
         }
 
-        //test convergenta added on 14.05
-
         std::vector<std::vector<double>> JAC;
 
+        int nrOfConsumerNodes{0};
+        int nrOfGeneratorNodes{0};
+        std::vector<double> nodeTypes;
+        {
+            for (auto i = 0; i < elsys.NodesRowSize(); i++) {
+                nodeTypes.push_back(elsys.GetNodesCol(1)[i]);
+            }
+            for (const auto &i : nodeTypes) {
+                if (i == 1) {
+                    ++nrOfGeneratorNodes;
+                }
+                if (i == 2) {
+                    ++nrOfConsumerNodes;
+                }
+            }
+        }
+        std::vector<double> pfDataVect;
+        {
+            for (const auto &i : powerFlowData.voltage) {
+                pfDataVect.push_back(i);
+            }
+            for (const auto &i : powerFlowData.angle) {
+                pfDataVect.push_back(i);
+            }
+            for (const auto &i : powerFlowData.activePower) {
+                pfDataVect.push_back(i);
+            }
+            for (const auto &i : powerFlowData.reactivePower) {
+                pfDataVect.push_back(i);
+            }
+        }
         /**  H **/
         std::vector<std::vector<double> > H;
+        for (auto &i: kernelNames) {
+            if (i == "pf_newton_raphson_H") {
+                id = 2;
 
+                if (!oclMain.KernelExists(id)) {
+                    oclMain.MakeKernel(i, id);
+                } else {
+                    oclMain.ClearBuffers(id);
+                }
+
+
+                oclMain.AddInputBuffer(id, nodeTypes);
+                oclMain.AddInputBuffer(id, pfDataVect);
+                oclMain.AddInputBuffer(id, elsys.GetRealAdmittanceMatrix());
+                oclMain.AddInputBuffer(id, elsys.GetImagAdmittanceMatrix());
+
+                oclMain.AddOutputBuffer(id, (int) std::pow(elsys.NodesRowSize(), 2));
+
+                oclMain.SetKernelParameters(id);
+
+                oclMain.SetRange(id,
+                                 cl::NullRange,
+                                 cl::NDRange{(size_t) elsys.NodesRowSize(), (size_t) elsys.NodesRowSize()},
+                                 cl::NullRange);
+
+            }
+        }
+
+        std::vector<double> singleVecH((size_t) std::pow(elsys.NodesRowSize(), 2), 0);
+        oclMain.Run(2, singleVecH);
+
+        for (int i = 0; i < elsys.NodesRowSize(); i++) {
+            if (elsys.GetNodesCol(1)[i] != 0) {
+                std::vector<double> temp;
+                for (int j = 0; j < elsys.NodesRowSize(); j++) {
+                    if (elsys.GetNodesCol(1)[j] != 0) {
+                        int idx{i * elsys.NodesRowSize() + j};
+                        temp.push_back(singleVecH[idx]);
+                    }
+                }
+                H.emplace_back(temp);
+            }
+        }
+
+        /*
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
             if (elsys.GetNodesCol(1)[i] != 0) {
                 std::vector<double> temp;
@@ -206,10 +253,61 @@ int main(const std::vector<std::vector<double>> &input,
                 H.emplace_back(temp);
             }
         }
+        */
 
-        /**  K **/
+        /** K **/
         std::vector<std::vector<double> > K;
 
+        for (auto &i: kernelNames) {
+            if (i == "pf_newton_raphson_K") {
+                id = 3;
+
+                if (!oclMain.KernelExists(id)) {
+                    oclMain.MakeKernel(i, id);
+                } else {
+                    oclMain.ClearBuffers(id);
+                }
+
+                oclMain.AddInputBuffer(id, nodeTypes);
+                oclMain.AddInputBuffer(id, pfDataVect);
+                oclMain.AddInputBuffer(id, elsys.GetRealAdmittanceMatrix());
+                oclMain.AddInputBuffer(id, elsys.GetImagAdmittanceMatrix());
+
+                oclMain.AddOutputBuffer(id, (int) std::pow(elsys.NodesRowSize(), 2));
+
+                oclMain.SetKernelParameters(id);
+
+
+                oclMain.SetRange(id,
+                                 cl::NullRange,
+                                 cl::NDRange{(size_t) elsys.NodesRowSize(), (size_t) elsys.NodesRowSize()},
+                                 cl::NullRange);
+/*
+                oclMain.SetRange(id,
+                                 cl::NullRange,
+                                 cl::NDRange{(size_t) output[id].rowSize, (size_t) output[id].rowSize},
+                                 cl::NullRange);
+*/
+            }
+        }
+
+        std::vector<double> singleVecK((size_t) std::pow(elsys.NodesRowSize(), 2), 0);
+        oclMain.Run(3, singleVecK);
+
+        for (int i = 0; i < elsys.NodesRowSize(); i++) {
+            if (elsys.GetNodesCol(1)[i] != 0) {
+                std::vector<double> temp;
+                for (int j = 0; j < elsys.NodesRowSize(); j++) {
+                    if (elsys.GetNodesCol(1)[j] == 2) {
+                        int idx{i * elsys.NodesRowSize() + j};
+                        temp.push_back(singleVecK[idx]);
+                    }
+                }
+                K.emplace_back(temp);
+            }
+        }
+
+/*
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
             if (elsys.GetNodesCol(1)[i] != 0) {
                 std::vector<double> temp;
@@ -232,9 +330,52 @@ int main(const std::vector<std::vector<double>> &input,
                 K.emplace_back(temp);
             }
         }
-
-        /** M **/
+*/
         std::vector<std::vector<double> > M;
+        /** M **/
+        for (auto &i: kernelNames) {
+            if (i == "pf_newton_raphson_M") {
+                id = 4;
+
+                if (!oclMain.KernelExists(id)) {
+                    oclMain.MakeKernel(i, id);
+                } else {
+                    oclMain.ClearBuffers(id);
+                }
+
+                oclMain.AddInputBuffer(id, nodeTypes);
+                oclMain.AddInputBuffer(id, pfDataVect);
+                oclMain.AddInputBuffer(id, elsys.GetRealAdmittanceMatrix());
+                oclMain.AddInputBuffer(id, elsys.GetImagAdmittanceMatrix());
+
+                oclMain.AddOutputBuffer(id, (int) std::pow(elsys.NodesRowSize(), 2));
+
+                oclMain.SetKernelParameters(id);
+
+
+                oclMain.SetRange(id,
+                                 cl::NullRange,
+                                 cl::NDRange{(size_t) elsys.NodesRowSize(), (size_t) elsys.NodesRowSize()},
+                                 cl::NullRange);
+            }
+        }
+
+        std::vector<double> singleVecM((size_t) std::pow(elsys.NodesRowSize(), 2), 0);
+        oclMain.Run(4, singleVecM);
+
+        for (int i = 0; i < elsys.NodesRowSize(); i++) {
+            if (elsys.GetNodesCol(1)[i] == 2) {
+                std::vector<double> temp;
+                for (int j = 0; j < elsys.NodesRowSize(); j++) {
+                    if (elsys.GetNodesCol(1)[j] != 0) {
+                        int idx{i * elsys.NodesRowSize() + j};
+                        temp.push_back(singleVecM[idx]);
+                    }
+                }
+                M.emplace_back(temp);
+            }
+        }
+/*
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
             if (elsys.GetNodesCol(1)[i] == 2) {
                 std::vector<double> temp;
@@ -258,8 +399,53 @@ int main(const std::vector<std::vector<double>> &input,
                 M.emplace_back(temp);
             }
         }
+*/
         /** L **/
         std::vector<std::vector<double> > L;
+
+        for (auto &i: kernelNames) {
+            if (i == "pf_newton_raphson_L") {
+                id = 5;
+
+                if (!oclMain.KernelExists(id)) {
+                    oclMain.MakeKernel(i, id);
+                } else {
+                    oclMain.ClearBuffers(id);
+                }
+
+                oclMain.AddInputBuffer(id, nodeTypes);
+                oclMain.AddInputBuffer(id, pfDataVect);
+                oclMain.AddInputBuffer(id, elsys.GetRealAdmittanceMatrix());
+                oclMain.AddInputBuffer(id, elsys.GetImagAdmittanceMatrix());
+
+                oclMain.AddOutputBuffer(id, (int) std::pow(elsys.NodesRowSize(), 2));
+
+                oclMain.SetKernelParameters(id);
+
+
+                oclMain.SetRange(id,
+                                 cl::NullRange,
+                                 cl::NDRange{(size_t) elsys.NodesRowSize(), (size_t) elsys.NodesRowSize()},
+                                 cl::NullRange);
+            }
+        }
+
+        std::vector<double> singleVecL((size_t) std::pow(elsys.NodesRowSize(), 2), 0);
+        oclMain.Run(5, singleVecL);
+
+        for (int i = 0; i < elsys.NodesRowSize(); i++) {
+            if (elsys.GetNodesCol(1)[i] == 2) {
+                std::vector<double> temp;
+                for (int j = 0; j < elsys.NodesRowSize(); j++) {
+                    if (elsys.GetNodesCol(1)[j] == 2) {
+                        int idx{i * elsys.NodesRowSize() + j};
+                        temp.push_back(singleVecL[idx]);
+                    }
+                }
+                L.emplace_back(temp);
+            }
+        }
+/*
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
             if (elsys.GetNodesCol(1)[i] == 2) {
                 std::vector<double> temp;
@@ -283,8 +469,7 @@ int main(const std::vector<std::vector<double>> &input,
                 L.emplace_back(temp);
             }
         }
-
-        //bugged? K and M get swapped? row and col get swapped? ???? why // -> rewrite remaking JAC
+*/
         if (H.size() != K.size()) {
             std::string msg = "H K size mismatch";
             LOG.Write(msg);
@@ -340,7 +525,7 @@ int main(const std::vector<std::vector<double>> &input,
             output.emplace_back(E_Matlab_Data_Structure{(int) elsys.GetImagAdmittanceMatrix().size(),
                                                         (int) elsys.GetImagAdmittanceMatrix()[0].size(),
                                                         imag});
-        } else { //these don't chage, not needed!
+        } else { //these don't change, not needed?
             output[3] = E_Matlab_Data_Structure{(int) elsys.GetRealAdmittanceMatrix().size(),
                                                 (int) elsys.GetRealAdmittanceMatrix()[0].size(),
                                                 real};
@@ -349,40 +534,16 @@ int main(const std::vector<std::vector<double>> &input,
                                                 imag};
         }
 
-        /* -> bugged, the matrix is sent transposed to matlab!!!
-         */
         std::vector<double> vecJAC;
-        /*
-        for (const auto &i: JAC) {
-            for (const auto &j: i) {
-                vecJAC.push_back(j);
-            }
-        }
-        */
-        /**added on 14.05**/
-        /*
-        for (auto i = 0; i < H.size(); i++) {
-            for (const auto &j : JAC[i]) {
-                vecJAC.push_back(j);
-            }
-        }
-        for (auto i = H.size(); i < JAC.size(); i++) {
-            for (const auto &j : JAC[i]) {
-                vecJAC.push_back(j);
-            }
-        }
-        // same as above....
-         */
-        for(int i=0;i<JAC.size();i++){
+        for (int i = 0; i < JAC.size(); i++) {
             std::vector<double> col;
-            for(int j=0;j<JAC.size();j++){
+            for (int j = 0; j < JAC.size(); j++) {
                 col.push_back(JAC[j][i]);
             }
-            for(const auto &k: col){
+            for (const auto &k: col) {
                 vecJAC.push_back(k);
             }
         }
-        /**added on 14.05 end**/
 
         if (step < 1) {
             output.emplace_back(E_Matlab_Data_Structure{(int) JAC.size(),
@@ -398,7 +559,7 @@ int main(const std::vector<std::vector<double>> &input,
         auto row = JAC.size();
         auto col = JAC[0].size();
 
-
+        /** need to find a way to get rid of matlab; my own inverse function is broken! -->later**/
         mxArray *mxJAC = mxCreateDoubleMatrix(row, col, mxREAL);
         std::copy(vecJAC.begin(), vecJAC.end(), mxGetPr(mxJAC));
 
@@ -427,7 +588,6 @@ int main(const std::vector<std::vector<double>> &input,
                 if (!oclMain.KernelExists(id)) {
                     oclMain.MakeKernel(i, id);
                     output.emplace_back(E_Matlab_Data_Structure{(int) JAC.size(), 1});
-                    idx++;
                 } else {
                     oclMain.ClearBuffers(id);
                 }
@@ -483,9 +643,8 @@ int main(const std::vector<std::vector<double>> &input,
         if (*std::max_element(std::begin(deltaPQ), std::end(deltaPQ)) < eps) {
             canStop = true;
         }
-
     }
-    info = "DEBUGG END MAIN FUNCTION!";
+    info = "DEBUG END MAIN FUNCTION!";
     LOG.Write(info);
 
     std::vector<double> pfResults;
@@ -505,6 +664,8 @@ int main(const std::vector<std::vector<double>> &input,
     E_Matlab_Data_Structure outPfResults{(int) powerFlowData.voltage.size(), 4, pfResults};
     output.emplace_back(outPfResults);
 
+    info = "DEBUG END MAIN FUNCTION!";
+    LOG.Write(info);
 
     return 0;
 }

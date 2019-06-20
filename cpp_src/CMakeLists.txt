@@ -27,7 +27,10 @@ add_executable(Newton_Raphson_Matlab_MEX
         OpenCL_Core/OCLC_Compute_Obj_Extra_01.cpp
         OpenCL_Core/OCLC_Compute_Obj.h
         INFO/Logger.h
-        Extra/E_Matlab_Data_Structure.h OpenCL_Core/OCLC_Compute_Obj_Extra_02.cpp main.cpp NewtonRaphsonCPU.cpp mex_Newton_Raphson_OpenCL.h)
+        Extra/E_Matlab_Data_Structure.h
+        OpenCL_Core/OCLC_Compute_Obj_Extra_02.cpp
+        main.cpp
+        mex_Newton_Raphson_OpenCL.h)
 
 target_link_libraries(Newton_Raphson_Matlab_MEX OpenCL::OpenCL)
 target_link_libraries(Newton_Raphson_Matlab_MEX ${Matlab_LIBRARIES})

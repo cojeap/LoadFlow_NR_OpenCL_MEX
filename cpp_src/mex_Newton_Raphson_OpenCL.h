@@ -18,8 +18,6 @@
 #include "Extra/E_Matlab_Data_Structure.h"
 #include "INFO/Logger.h"
 
-void NewtonRaphsonCPU(const PSC_electrical_power_system& system, std::vector<E_Matlab_Data_Structure>& output);
-
 int main(const std::vector<std::vector<double>>& input, std::vector<E_Matlab_Data_Structure>& output);
 
 #endif //NEWTON_RAPHSON_MATLAB_MEX_MEX_NEWTON_RAPHSON_OPENCL_H

@@ -49,7 +49,6 @@ class OCLC_Compute_Obj {
         std::string name;
         int ID;
 
-
         std::vector<cl::Buffer> input;
         std::vector<cl::Buffer> output;
 
@@ -67,13 +66,10 @@ class OCLC_Compute_Obj {
 
     };
 
-
     cl::Platform *platform;
     cl::Device *device;
     cl::Context *context;
     cl::Program *program;
-
-    //std::unique_ptr<cl::CommandQueue> cmdQueue;
     cl::CommandQueue *cmdQueue;
 
     std::vector<std::pair<std::string, int> > kernelsInfo;

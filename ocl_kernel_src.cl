@@ -1,3 +1,5 @@
+
+/* ID = 0 */
 __kernel void pf_newton_raphson_init(
         __global double *in,
         __global double *out) {
@@ -27,6 +29,7 @@ __kernel void pf_newton_raphson_init(
     barrier(CLK_GLOBAL_MEM_FENCE);
 }
 
+/* ID = 1 */
 __kernel void pf_pf_newton_raphson_calculate_powers(
     __global double * voltage,
     __global double * angle,
@@ -46,25 +49,127 @@ __kernel void pf_pf_newton_raphson_calculate_powers(
         activePow[col] += voltage[col]* voltage[i] * ( real[col+i*gsize]*cos(teta)+imag[col+i*gsize]*sin(teta) );
         reactivePow[col] += voltage[col]* voltage[i] * ( real[col+i*gsize]*sin(teta)-imag[col+i*gsize]*cos(teta) );
     }
-
-
-
 }
 
-__kernel void pf_newton_raphson_H_K_M_L(
+/* ID = 2 */
+__kernel void pf_newton_raphson_H(
     __global double * nodeType,
     __global double * powerFlowData,
     __global double * real,
     __global double * imag,
-    __global double * rowSize,
-    __global double * H,
-    __global double * K,
-    __global double * M,
-    __global double * L
+    __global double * H
 ){
-    int idx = get_global_id(0);
+    int col = get_global_id(0);
+    int row = get_global_id(1);
+
+    int gsize = get_global_size(0);
+
+    double val = 0.0;
+
+    if(nodeType[row]!= 0.0){
+        double dTeta = powerFlowData[1*gsize+row]  - powerFlowData[1*gsize+col];
+        if(nodeType[col]!= 0.0){
+            if(row==col){
+                val = 0.0-powerFlowData[3*gsize+row]-imag[row*gsize+col]*powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col];
+            }
+            if(row!=col){
+                val = 0.0-powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col]*(imag[row*gsize+col]*cos(dTeta)-real[row*gsize+col]*sin(dTeta));
+            }
+            H[row*gsize + col] = val;
+        }
+    }
+
 }
 
+/* ID = 3 */
+__kernel void pf_newton_raphson_K(
+    __global double * nodeType,
+    __global double * powerFlowData,
+    __global double * real,
+    __global double * imag,
+    __global double * K
+){
+    int col = get_global_id(0);
+    int row = get_global_id(1);
+
+    int gsize = get_global_size(0);
+
+    double val = 0.0;
+
+    if(nodeType[row]!= 0.0)
+    {
+        double dTeta = powerFlowData[1*gsize+row]  - powerFlowData[1*gsize+col];
+        if(nodeType[col]== 2.0){
+            if(row==col){
+                val = powerFlowData[2*gsize+row]+real[row*gsize+col]*powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col];
+            }
+            if(row!=col){
+                val = powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col]*(real[row*gsize+col]*cos(dTeta)+imag[row*gsize+col]*sin(dTeta));
+            }
+            K[row*gsize + col] = val;
+        }
+    }
+}
+
+/* ID = 4 */
+__kernel void pf_newton_raphson_M(
+    __global double * nodeType,
+    __global double * powerFlowData,
+    __global double * real,
+    __global double * imag,
+    __global double * M
+){
+    int col = get_global_id(0);
+    int row = get_global_id(1);
+
+    int gsize = get_global_size(0);
+
+    double val = 0.0;
+
+    if(nodeType[row]== 2.0){
+        double dTeta = powerFlowData[1*gsize+row]  - powerFlowData[1*gsize+col];
+        if(nodeType[col]!= 0.0){
+            if(row==col){
+                val = powerFlowData[2*gsize+row]-real[row*gsize+col]*powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col];
+            }
+            if(row!=col){
+                val = 0.0-powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col]*(real[row*gsize+col]*cos(dTeta)+imag[row*gsize+col]*sin(dTeta));
+            }
+            M[row*gsize + col] = val;
+        }
+    }
+}
+
+/* ID = 5 */
+__kernel void pf_newton_raphson_L(
+    __global double * nodeType,
+    __global double * powerFlowData,
+    __global double * real,
+    __global double * imag,
+    __global double * L
+){
+    int col = get_global_id(0);
+    int row = get_global_id(1);
+
+    int gsize = get_global_size(0);
+
+    double val = 0.0;
+
+    if(nodeType[row]== 2.0){
+        double dTeta = powerFlowData[1*gsize+row]  - powerFlowData[1*gsize+col];
+        if(nodeType[col]== 2.0){
+            if(row==col){
+                val = powerFlowData[3*gsize+row]-imag[row*gsize+col]*powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col];
+            }
+            if(row!=col){
+                val = 0.0-powerFlowData[0*gsize+row]*powerFlowData[0*gsize+col]*(imag[row*gsize+col]*cos(dTeta)-real[row*gsize+col]*sin(dTeta));
+            }
+            L[row*gsize + col] = val;
+        }
+    }
+}
+
+/* ID = 6 */
 __kernel void pf_newton_raphson_error_compute(
     __global double * invJAC,
     __global double * deltaPQ,
@@ -84,6 +189,9 @@ __kernel void pf_newton_raphson_error_compute(
 
 
 
+/* broken fcn */
+
+/* ID = -66 */
 __kernel void matrixInverseJordan(
         __global double *matrix,
         __global double *matrixInverse){

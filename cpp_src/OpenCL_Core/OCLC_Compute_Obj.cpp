@@ -144,6 +144,10 @@ OCLC_Compute_Obj::~OCLC_Compute_Obj() {
     delete platform;
     platform = nullptr;
 
+    for(auto& i : kernels){
+        ClearBuffers(i.ID);
+    }
+
     kernelsInfo.clear();
     kernels.clear();
 

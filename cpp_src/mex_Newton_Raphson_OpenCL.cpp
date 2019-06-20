@@ -2,17 +2,17 @@
  * Created by Petru on 13.04.2019.
  *
  * Due to the way Matlab responds to thrown exceptions a NO_THROW_EXCEPTION policy is used in user created objects only.
- * A device with double floating-point precision is expected:  [cl_khr_fp64] ! Need to implement a chec
+ * A device with double floating-point precision is expected:  [cl_khr_fp64] ! Need to implement a check
  *
  * Kernels have a given id hardcoded as follows: -66. <--- not needed anymore. need to remove
  *
  * init  ID=0;
  *
  *
- * There are memory leaks do to not cleaning mxArrays during the running of this program. to be done later
+ * There are issues (could be memory leaks?) due to not cleaning mxArrays during the running of this program. to be done later
  * Make a matlab obj mem manager??? ->> later priority
  *
- * Need to place a check so that if an user add more buffers to the kernel that their num of args it will return an error(for now it silently fails and gives either erred output or none at all)
+ * Need to place a check so that if an user adds more buffers to the kernel that their num of args it will return an error(for now it silently fails and gives either erred output or none at all)
  * Need to implement an error enum class to ease debugging
  *
  *
