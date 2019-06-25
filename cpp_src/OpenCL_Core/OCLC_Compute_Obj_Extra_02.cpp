@@ -3,14 +3,11 @@
 //
 
 #include "OCLC_Compute_Obj.h"
-#include "../INFO/Logger.h"
-
 
 void OCLC_Compute_Obj::SetKernelParameters(const int &kernelID) {
     for(auto &i : kernels){
         if(i.ID==kernelID){
-            auto idx = i.kernel.getInfo<CL_KERNEL_NUM_ARGS>();
-            idx=0;
+            auto idx=0;
             for(auto &j: i.input){
                 i.kernel.setArg(idx,j);
                 idx++;
@@ -26,8 +23,7 @@ void OCLC_Compute_Obj::SetKernelParameters(const int &kernelID) {
 void OCLC_Compute_Obj::SetKernelParameters(const std::string &kernelName) {
     for(auto &i : kernels){
         if(i.name==kernelName){
-            auto idx = i.kernel.getInfo<CL_KERNEL_NUM_ARGS>();
-            idx=0;
+            auto idx=0;
             for(auto &j: i.input){
                 i.kernel.setArg(idx,j);
                 ++idx;
@@ -50,23 +46,30 @@ void OCLC_Compute_Obj::AddInputBuffer(const int &kernelID, const std::vector<std
         }
     }
 
-    cl::Buffer buffer{*context,data.begin(),data.end(),true,false};
-
     for(auto& i : kernels){
         if(i.ID==kernelID){
-            i.input.push_back(buffer);
+            i.input.emplace_back(cl::Buffer(*context,data.begin(),data.end(),true,false));
         }
     }
 }
-
+/******/
+/*
 void OCLC_Compute_Obj::AddInputBuffer(const int &kernelID, const std::vector<double> &dataMatrix) {
 
-    std::vector<double> data = dataMatrix;
-    cl::Buffer buffer{*context,data.begin(),data.end(),true,false};
+
 
     for(auto& i : kernels){
         if(i.ID==kernelID){
-            i.input.push_back(buffer);
+            //i.input.emplace_back(cl::Buffer{*context,dataMatrix.begin(),dataMatrix.end(),true,false} );
+        }
+    }
+}
+*/
+void OCLC_Compute_Obj::AddInputBuffer(const int &kernelID, std::vector<double> &dataMatrix) {
+
+    for(auto& i : kernels){
+        if(i.ID==kernelID){
+            i.input.emplace_back( cl::Buffer{*context,dataMatrix.begin(),dataMatrix.end(),true,false});
         }
     }
 }
@@ -80,32 +83,27 @@ void OCLC_Compute_Obj::AddInputBuffer(const std::string &kernelName, const std::
         }
     }
 
-    cl::Buffer buffer{*context,data.begin(),data.end(),true,false};
-
     for(auto& i : kernels){
         if(i.name == kernelName){
-            i.input.push_back(buffer);
+            i.input.emplace_back(cl::Buffer(*context,data.begin(),data.end(),true,false));
         }
     }
 }
 
 void OCLC_Compute_Obj::AddOutputBuffer(const int &kernelID, const size_t& size) {
 
-    cl::Buffer buffer{*context,CL_MEM_READ_WRITE,sizeof(double)*size};
-
     for(auto& i : kernels){
         if(i.ID==kernelID){
-            i.output.push_back(buffer);
+            i.output.emplace_back(cl::Buffer(*context,CL_MEM_READ_WRITE,sizeof(double)*size));
         }
     }
 }
 
 void OCLC_Compute_Obj::AddOutputBuffer(const std::string &kernelName,const size_t& size) {
-    cl::Buffer buffer{*context,CL_MEM_READ_WRITE,sizeof(double)*size};
 
     for(auto& i : kernels){
         if(i.name==kernelName){
-            i.output.push_back(buffer);
+            i.output.emplace_back(cl::Buffer(*context,CL_MEM_READ_WRITE,sizeof(double)*size));
         }
     }
 

@@ -16,8 +16,8 @@ std::vector<std::string> OCLC_Compute_Obj::GetKernelNames() {
 }
 
 void OCLC_Compute_Obj::MakeKernel(const std::string &kernelName, const int &kernelID) {
-    cl::Kernel krl(*program, kernelName.c_str());
-    kernels.emplace_back(krl, kernelName, kernelID);
+
+    kernels.emplace_back(OCLC_kernel(cl::Kernel(*program, kernelName.c_str()), kernelName, kernelID));
 }
 
 void OCLC_Compute_Obj::SetRange(const int &kernelID,

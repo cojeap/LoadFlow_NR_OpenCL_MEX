@@ -36,4 +36,11 @@ stoptimeMEX=cputime;
 
 durataMEX = stoptimeMEX-starttimeMEX;
 
+%{
+[~,f] = inmem( '-completenames' );
+result = strfind( f, ['mex_Newton_Raphson_OpenCL' '.' mexext] );
+result = f(cellfun( @isempty, result, 'UniformOutput', true ) == 0);
+clear( result{:} )
+%}
+
 

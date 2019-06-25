@@ -2,7 +2,7 @@
 /* ID = 0 */
 __kernel void pf_newton_raphson_init(
         __global double *in,
-        __global double *out) {
+        __global double *out ) {
 
     int col = get_global_id(0);
     int row = get_global_id(1);
@@ -36,8 +36,7 @@ __kernel void pf_pf_newton_raphson_calculate_powers(
     __global double * real,
     __global double * imag,
     __global double * activePow,
-    __global double * reactivePow
-){
+    __global double * reactivePow ){
     int col = get_global_id(0);
     int gsize = get_global_size(0);
 
@@ -57,8 +56,7 @@ __kernel void pf_newton_raphson_H(
     __global double * powerFlowData,
     __global double * real,
     __global double * imag,
-    __global double * H
-){
+    __global double * H ){
     int col = get_global_id(0);
     int row = get_global_id(1);
 
@@ -87,8 +85,7 @@ __kernel void pf_newton_raphson_K(
     __global double * powerFlowData,
     __global double * real,
     __global double * imag,
-    __global double * K
-){
+    __global double * K ){
     int col = get_global_id(0);
     int row = get_global_id(1);
 
@@ -117,8 +114,7 @@ __kernel void pf_newton_raphson_M(
     __global double * powerFlowData,
     __global double * real,
     __global double * imag,
-    __global double * M
-){
+    __global double * M ){
     int col = get_global_id(0);
     int row = get_global_id(1);
 
@@ -146,8 +142,7 @@ __kernel void pf_newton_raphson_L(
     __global double * powerFlowData,
     __global double * real,
     __global double * imag,
-    __global double * L
-){
+    __global double * L){
     int col = get_global_id(0);
     int row = get_global_id(1);
 
@@ -173,8 +168,7 @@ __kernel void pf_newton_raphson_L(
 __kernel void pf_newton_raphson_error_compute(
     __global double * invJAC,
     __global double * deltaPQ,
-    __global double * errorPQ)
-{
+    __global double * errorPQ ){
     int col = get_global_id(0);
     int gsize = get_global_size(0);
 
@@ -191,10 +185,10 @@ __kernel void pf_newton_raphson_error_compute(
 
 /* broken fcn */
 
-/* ID = -66 */
+/* ID = -88 */
 __kernel void matrixInverseJordan(
         __global double *matrix,
-        __global double *matrixInverse){
+        __global double *matrixInverse ){
 
     int col = get_global_id(0);
     int row = get_global_id(1);
@@ -203,7 +197,6 @@ __kernel void matrixInverseJordan(
 
     matrixInverse[row + col * size] = matrix[row + col * size] / matrix[row + row * size];
 
-    barrier(CLK_GLOBAL_MEM_FENCE);
 
     int row_idx, col_idx, curr_col;
     for (curr_col = 0; curr_col < size; curr_col++) {

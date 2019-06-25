@@ -26,12 +26,11 @@ class OCLC_Compute_Obj {
 
         explicit OCLC_NDRange(const cl::NDRange &offset = cl::NullRange,
                               const cl::NDRange &globalRange = cl::NullRange,
-                              const cl::NDRange &localRange = cl::NullRange
-        ) : offset{offset},
-            globalRange{globalRange},
-            localRange{localRange} {};
+                              const cl::NDRange &localRange = cl::NullRange) : offset{offset},
+                                                                               globalRange{globalRange},
+                                                                               localRange{localRange} {};
 
-        OCLC_NDRange& operator=(const OCLC_NDRange &ranges) {
+        OCLC_NDRange &operator=(const OCLC_NDRange &ranges) {
             offset = ranges.offset;
             globalRange = ranges.globalRange;
             localRange = ranges.localRange;
@@ -54,15 +53,15 @@ class OCLC_Compute_Obj {
 
         OCLC_NDRange ranges;
 
-        OCLC_kernel(const cl::Kernel &kernel,
+        OCLC_kernel(cl::Kernel kernel,
                     const std::string &kernelName,
-                    const int &kernelID
-        ) : kernel{kernel},
+                    int kernelID
+        ) : kernel{std::move(kernel)},
             name{kernelName},
             ID{kernelID},
             ranges{cl::NullRange, cl::NullRange, cl::NullRange} {};
 
-        ~OCLC_kernel() = default;
+        ~OCLC_kernel()=default;
 
     };
 
@@ -84,7 +83,7 @@ public:
 
     explicit OCLC_Compute_Obj(std::string srcFile);
 
-    OCLC_Compute_Obj&operator=(const OCLC_Compute_Obj& obj)=delete;
+    OCLC_Compute_Obj &operator=(const OCLC_Compute_Obj &obj) = delete;
 
     ~OCLC_Compute_Obj();
 
@@ -99,9 +98,10 @@ public:
     void AddInputBuffer(const std::string &kernelName,
                         const std::vector<std::vector<double>> &dataMatrix);
 
+/*
     void AddInputBuffer(const int &kernelID,
             const std::vector<double> &dataMatrix);
-
+*/
     void SetKernelParameters(const int &kernelID);
 
     void SetKernelParameters(const std::string &kernelName);
@@ -117,13 +117,18 @@ public:
                   const cl::NDRange &globalRange,
                   const cl::NDRange &localRange);
 
-    void Run(const int &kernelID, std::vector<double>& result);
-    void Run(const int &kernelID, std::vector<std::vector<double>>& result);
+    void Run(const int &kernelID, std::vector<double> &result);
+
+    void Run(const int &kernelID, std::vector<std::vector<double>> &result);
 
     void ClearBuffers(const int &kernelID);
+
     bool KernelExists(const int &kernelID);
 
     void Finish();
+
+    void AddInputBuffer(const int &kernelID, std::vector<double> &dataMatrix);
+
 };
 
 
