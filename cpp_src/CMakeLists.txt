@@ -30,7 +30,7 @@ add_executable(Newton_Raphson_Matlab_MEX
         Extra/E_Matlab_Data_Structure.h
         OpenCL_Core/OCLC_Compute_Obj_Extra_02.cpp
         main.cpp
-        mex_Newton_Raphson_OpenCL.h)
+        mex_Newton_Raphson_OpenCL.h Power_System_Core/PSC_electrical_transformer.cpp Power_System_Core/PSC_electrical_transformer.h)
 
 target_link_libraries(Newton_Raphson_Matlab_MEX OpenCL::OpenCL)
 target_link_libraries(Newton_Raphson_Matlab_MEX ${Matlab_LIBRARIES})

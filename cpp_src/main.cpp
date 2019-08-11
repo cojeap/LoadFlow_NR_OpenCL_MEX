@@ -14,7 +14,8 @@
 #include "mex_Newton_Raphson_OpenCL.h"
 
 int main(const std::vector<std::vector<double>> &input,
-         std::vector<E_Matlab_Data_Structure> &output) {
+         std::vector<E_Matlab_Data_Structure> &output)
+{
 
     Logger::Logger LOG;
 
@@ -47,11 +48,12 @@ int main(const std::vector<std::vector<double>> &input,
             oclMain.MakeKernel(i, id);
 
             oclMain.AddInputBuffer(id, elsys.GetNodesData());
-
+/*
             output.emplace_back(E_Matlab_Data_Structure{elsys.NodesRowSize(),
                                                         elsys.NodesColSize(),
                                                         elsys.GetNodesData()});
-            oclMain.AddOutputBuffer(id, output[0].data.size());
+ */
+            oclMain.AddOutputBuffer(id, elsys.NodesRowSize() * elsys.NodesColSize());
 
             oclMain.SetKernelParameters(id);
 
@@ -61,9 +63,11 @@ int main(const std::vector<std::vector<double>> &input,
                              cl::NullRange);
         }
     }
-    oclMain.Run(0, output[0].data);
+
+    std::vector<double> relativeUnitsSystem(elsys.NodesRowSize() * elsys.NodesColSize(), 0);
+    oclMain.Run(0, relativeUnitsSystem);
     //set new elsys
-    elsys.SetNodesData(output[0].data, output[0].rowSize, output[0].colSize);
+    elsys.SetNodesData(relativeUnitsSystem, elsys.NodesRowSize(), elsys.NodesColSize());
 
     //while loop start
     int step{0};
@@ -81,9 +85,10 @@ int main(const std::vector<std::vector<double>> &input,
                 id = 1;
 
                 if (!oclMain.KernelExists(id)) {
+                    /*
                     output.emplace_back(E_Matlab_Data_Structure{elsys.NodesRowSize(), 1}); //activePow
                     output.emplace_back(E_Matlab_Data_Structure{elsys.NodesRowSize(), 1});//reactivePow
-
+                    */
                     oclMain.MakeKernel(i, id);
 
                     if (step < 1) {
@@ -109,11 +114,8 @@ int main(const std::vector<std::vector<double>> &input,
                 oclMain.AddInputBuffer(id, elsys.GetRealAdmittanceMatrix());
                 oclMain.AddInputBuffer(id, elsys.GetImagAdmittanceMatrix());
 
-                oclMain.AddOutputBuffer(id, output[1].data.size());
-                oclMain.AddOutputBuffer(id, output[2].data.size());
-
-                powerVectors.emplace_back(output[1].data);
-                powerVectors.emplace_back(output[2].data);
+                oclMain.AddOutputBuffer(id, elsys.NodesRowSize());
+                oclMain.AddOutputBuffer(id, elsys.NodesRowSize());
 
                 oclMain.SetKernelParameters(id);
 
@@ -125,10 +127,10 @@ int main(const std::vector<std::vector<double>> &input,
             }
         }
 
-        oclMain.Run(1, powerVectors);
+        powerVectors.emplace_back(std::vector<double>(elsys.NodesRowSize(), 0));
+        powerVectors.emplace_back(std::vector<double>(elsys.NodesRowSize(), 0));
 
-        output[1].data = powerVectors[0];
-        output[2].data = powerVectors[1];
+        oclMain.Run(1, powerVectors);
 
         powerFlowData.activePower = powerVectors[0];
         powerFlowData.reactivePower = powerVectors[1];
@@ -282,12 +284,7 @@ int main(const std::vector<std::vector<double>> &input,
                                  cl::NullRange,
                                  cl::NDRange{(size_t) elsys.NodesRowSize(), (size_t) elsys.NodesRowSize()},
                                  cl::NullRange);
-/*
-                oclMain.SetRange(id,
-                                 cl::NullRange,
-                                 cl::NDRange{(size_t) output[id].rowSize, (size_t) output[id].rowSize},
-                                 cl::NullRange);
-*/
+
             }
         }
 
@@ -506,35 +503,10 @@ int main(const std::vector<std::vector<double>> &input,
             return -1;
         }
 
-
-        std::vector<double> real, imag;
-        for (const auto &i :elsys.GetRealAdmittanceMatrix()) {
-            for (const auto &j: i) {
-                real.emplace_back(j);
-            }
-        }
-        for (const auto &i :elsys.GetImagAdmittanceMatrix()) {
-            for (const auto &j: i) {
-                imag.emplace_back(j);
-            }
-        }
-        if (step < 1) {
-            output.emplace_back(E_Matlab_Data_Structure{(int) elsys.GetRealAdmittanceMatrix().size(),
-                                                        (int) elsys.GetRealAdmittanceMatrix()[0].size(),
-                                                        real});
-            output.emplace_back(E_Matlab_Data_Structure{(int) elsys.GetImagAdmittanceMatrix().size(),
-                                                        (int) elsys.GetImagAdmittanceMatrix()[0].size(),
-                                                        imag});
-        } else { //these don't change, not needed?
-            output[3] = E_Matlab_Data_Structure{(int) elsys.GetRealAdmittanceMatrix().size(),
-                                                (int) elsys.GetRealAdmittanceMatrix()[0].size(),
-                                                real};
-            output[4] = E_Matlab_Data_Structure{(int) elsys.GetImagAdmittanceMatrix().size(),
-                                                (int) elsys.GetImagAdmittanceMatrix()[0].size(),
-                                                imag};
-        }
-
+        //inverse operation;
         std::vector<double> vecJAC;
+        std::vector<double> singleVecJAC;
+
         for (int i = 0; i < JAC.size(); i++) {
             std::vector<double> col;
             for (int j = 0; j < JAC.size(); j++) {
@@ -544,50 +516,33 @@ int main(const std::vector<std::vector<double>> &input,
                 vecJAC.push_back(k);
             }
         }
-
-        if (step < 1) {
-            output.emplace_back(E_Matlab_Data_Structure{(int) JAC.size(),
-                                                        (int) JAC[0].size(),
-                                                        vecJAC});
-        } else {
-            output[5] = E_Matlab_Data_Structure{(int) JAC.size(),
-                                                (int) JAC[0].size(),
-                                                vecJAC};
-        }
-
-        //inverse operation;
         auto row = JAC.size();
         auto col = JAC[0].size();
+        {
+            /** need to find a way to get rid of matlab; my own inverse function is broken! -->later**/
+            mxArray *mxJAC = mxCreateDoubleMatrix(row, col, mxREAL);
+            std::copy(vecJAC.begin(), vecJAC.end(), mxGetPr(mxJAC));
 
-        /** need to find a way to get rid of matlab; my own inverse function is broken! -->later**/
-        mxArray *mxJAC = mxCreateDoubleMatrix(row, col, mxREAL);
-        std::copy(vecJAC.begin(), vecJAC.end(), mxGetPr(mxJAC));
+            mxArray *mxInvJAC;
 
-        mxArray *mxInvJAC;
-        std::vector<double> singleVecJAC;
-        auto err = mexCallMATLAB(1, &mxInvJAC, 1, &mxJAC, "inv");
-        //in case the default call is done to callmatlab_with_trap then an error code is returned
-        row = mxGetM(mxInvJAC);
-        col = mxGetN(mxInvJAC);
-        for (int i = 0; i < row * col; i++) {
-            singleVecJAC.emplace_back(mxGetPr(mxInvJAC)[i]);
+            auto err = mexCallMATLAB(1, &mxInvJAC, 1, &mxJAC, "inv");
+            //in case the default call is done to callmatlab_with_trap then an error code is returned
+            row = mxGetM(mxInvJAC);
+            col = mxGetN(mxInvJAC);
+            for (int i = 0; i < row * col; i++) {
+                singleVecJAC.emplace_back(mxGetPr(mxInvJAC)[i]);
+            }
+
+            mxDestroyArray(mxJAC);
+            mxDestroyArray(mxInvJAC);
+            //inverse operation done
         }
 
-        mxDestroyArray(mxJAC);
-        mxDestroyArray(mxInvJAC);
-        //inverse operation done
-
-        if (step < 1) {
-            output.emplace_back(E_Matlab_Data_Structure{(int) row, (int) col, singleVecJAC});
-        } else {
-            output[6] = E_Matlab_Data_Structure{(int) row, (int) col, singleVecJAC};
-        }
         for (auto &i : kernelNames) {
             if (i == "pf_newton_raphson_error_compute") {
                 id = 9;
                 if (!oclMain.KernelExists(id)) {
                     oclMain.MakeKernel(i, id);
-                    output.emplace_back(E_Matlab_Data_Structure{(int) JAC.size(), 1});
                 } else {
                     oclMain.ClearBuffers(id);
                 }
@@ -609,8 +564,6 @@ int main(const std::vector<std::vector<double>> &input,
         std::vector<double> calculatedErrors(JAC.size(), 0);
 
         oclMain.Run(id, calculatedErrors);
-
-        output[7].data = calculatedErrors;
 
         //determining new values
         int idx_plus{0};

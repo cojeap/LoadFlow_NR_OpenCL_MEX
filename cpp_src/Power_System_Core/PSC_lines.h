@@ -63,7 +63,6 @@ namespace PSCL {
 
         const std::vector<std::vector<double>> GetData();
 
-
         std::vector<LinesData> GetInternalData() { return data; };
 
         std::vector<LinesData> GetInternalData() const { return data; };

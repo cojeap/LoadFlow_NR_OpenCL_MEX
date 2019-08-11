@@ -52,19 +52,7 @@ void OCLC_Compute_Obj::AddInputBuffer(const int &kernelID, const std::vector<std
         }
     }
 }
-/******/
-/*
-void OCLC_Compute_Obj::AddInputBuffer(const int &kernelID, const std::vector<double> &dataMatrix) {
 
-
-
-    for(auto& i : kernels){
-        if(i.ID==kernelID){
-            //i.input.emplace_back(cl::Buffer{*context,dataMatrix.begin(),dataMatrix.end(),true,false} );
-        }
-    }
-}
-*/
 void OCLC_Compute_Obj::AddInputBuffer(const int &kernelID, std::vector<double> &dataMatrix) {
 
     for(auto& i : kernels){

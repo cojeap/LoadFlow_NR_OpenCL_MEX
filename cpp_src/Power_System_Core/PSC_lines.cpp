@@ -41,11 +41,15 @@ PSC_lines::PSC_lines(const std::vector<std::vector<double>> &inputData) {
         data[i].susceptance0 = inputData[17][i];
         data[i].nrOfConductors = inputData[18][i];
 
-        data[i].realImpedance = data[i].lineLength * data[i].resistance0;
-        data[i].imagImpedance = data[i].lineLength * data[i].reactance0;
+        double baseAdmittance = pow(data[i].nominalVoltage, 2) / 100.0;
+        double nrofLinesMatters = baseAdmittance * data[i].nrOfConductors;
 
-        data[i].realAdmittance = data[i].lineLength * data[i].conductance0;
-        data[i].imagAdmittance = data[i].lineLength * data[i].susceptance0;
+        data[i].realImpedance = data[i].lineLength * data[i].resistance0/nrofLinesMatters;
+        data[i].imagImpedance = data[i].lineLength * data[i].reactance0/nrofLinesMatters;
+        //2.0 comes from pi scheme
+        data[i].realAdmittance = data[i].lineLength * data[i].conductance0*nrofLinesMatters/2.0;
+        data[i].imagAdmittance = data[i].lineLength * data[i].susceptance0*nrofLinesMatters/2.0;
+        //data[i].imagAdmittance = data[i].lineLength * data[i].susceptance0*10e-6*nrofLinesMatters/2.0;
 
     }
 }
@@ -111,6 +115,7 @@ const double PSC_lines::GetRowCol(const int &rowNr, const int &colNr) {
             colData = row.imagAdmittance;
             break;
         default:
+            //std::assert(colNr>=13 || colNr<=0);
             return (-6 * 10e10);
     }
     return colData;
