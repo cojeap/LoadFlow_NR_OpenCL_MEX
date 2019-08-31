@@ -6,35 +6,48 @@
 
 addpath('input','src');
 
+%
 
-load_data;
+CASE_TEST2_FIN2
 
-starttimeMEX=cputime;
+[a_TEST2,b_TEST2,c_TEST2] = RunPF_OCL(0,[],networkData,lineData,trafoData);
 
-[out1_sysrelunits, out2_P, out3_Q, out4_real,out5_imag,out6_JAC,out7_invJAC,out8_errorPQ,out9_pfResults] = mex_Newton_Raphson_OpenCL(...
-    networkData.nodeNr,...
-    networkData.nodeType,...
-    networkData.nominalVoltage,...
-    networkData.activePower,...
-    networkData.reactivePower,...
-    networkData.consumedActivePower,...
-    networkData.consumedReactivePower,...
-    networkData.imposedVoltage,...
-    networkData.minimumReactivePower,...
-    networkData.maximumReactivePower,...
-    lineData.fromNode,...
-    lineData.toNode,...
-    lineData.nominalvoltage,...
-    lineData.length,...
-    lineData.resistance0,...
-    lineData.reactance0,...
-    lineData.conductance0,...
-    lineData.susceptance0,...
-    lineData.nrOfConductors...
-    );
-stoptimeMEX=cputime;
+%}
 
-durataMEX = stoptimeMEX-starttimeMEX;
+%{
+
+CASE_IEEE_14
+
+[a_14,b_14,c_14] = RunPF_OCL(0,[],networkData,lineData,trafoData);
+
+
+%}
+
+
+%{
+
+CASE_IEEE_30
+
+[a_30,b_30,c_30] = RunPF_OCL(0,[],networkData,lineData,trafoData);
+
+%}
+
+%{
+
+CASE_IEEE_57
+
+[a_57,b_57,c_57] = RunPF_OCL(0,[],networkData,lineData,trafoData);
+
+%}
+
+%{
+
+CASE_IEEE_118
+
+[a_118,b_118,c_118] = RunPF_OCL(0,[],networkData,lineData,trafoData);
+
+%}
+
 
 %{
 [~,f] = inmem( '-completenames' );

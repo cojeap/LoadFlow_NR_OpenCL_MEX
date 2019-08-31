@@ -100,7 +100,8 @@ OCLC_Compute_Obj::OCLC_Compute_Obj(std::string srcFile) {
     std::string name;
     size_t splitPos;
     std::string delimiter{';'};
-    // /* ; */ is the standard delimiter of 2 kernel names for program.getInfo<CL_PROGRAM_KERNEL_NAMES>()
+
+    // /* ; */ is the standard delimiter between 2 kernel names for program.getInfo<CL_PROGRAM_KERNEL_NAMES>()
 
     while ((splitPos = kNames.find(delimiter)) != std::string::npos) {
         name = kNames.substr(0, splitPos);
@@ -129,7 +130,6 @@ OCLC_Compute_Obj::OCLC_Compute_Obj(std::string srcFile) {
 }
 
 OCLC_Compute_Obj::~OCLC_Compute_Obj() {
-
     delete cmdQueue;
     cmdQueue = nullptr;
 
