@@ -14,8 +14,7 @@
 #include "mex_Newton_Raphson_OpenCL.h"
 
 int main(const std::vector<std::vector<double>> &input,
-         std::vector<E_Matlab_Data_Structure> &output)
-{
+         std::vector<E_Matlab_Data_Structure> &output) {
 
     Logger::Logger LOG;
 
@@ -76,6 +75,11 @@ int main(const std::vector<std::vector<double>> &input,
     double eps{1e-3};
     PSE_Power_Flow_Data powerFlowData;
 
+    std::vector<double> nominalGeneratorType;
+    std::vector<double> currentIterGeneratorType;
+    std::vector<double> nominalVoltageType;
+    std::vector<double> nominalImposedQ{elsys.GetNodesCol(11)};
+
     while (!canStop) {
 
         std::vector<std::vector<double>> powerVectors;
@@ -103,6 +107,10 @@ int main(const std::vector<std::vector<double>> &input,
                         std::vector<double> teta(elsys.NodesRowSize(), 0);
                         powerFlowData.voltage = voltage;
                         powerFlowData.angle = teta;
+
+                        nominalVoltageType = powerFlowData.voltage;
+                        nominalGeneratorType = elsys.GetNodesCol(1);
+                        currentIterGeneratorType = elsys.GetNodesCol(1);
                     }
                 } else {
                     oclMain.ClearBuffers(id);
@@ -135,12 +143,64 @@ int main(const std::vector<std::vector<double>> &input,
         powerFlowData.activePower = powerVectors[0];
         powerFlowData.reactivePower = powerVectors[1];
 
+        /** tratarea nodurilor generatoare **/
+
+        if (step > 0) {
+
+            currentIterGeneratorType = elsys.GetNodesCol(1);
+            for (auto i = 0; i < elsys.NodesRowSize(); i++) {
+                // if(elsys.GetNodesRowCol(i, 11)==(elsys.GetNodesRowCol(i, 9))- powerFlowData.reactivePower[i]){}
+                if (nominalGeneratorType[i] == 1) {
+                    double qcons = elsys.GetNodesRowCol(i,6);
+                    double qdeb = powerFlowData.reactivePower[i]+qcons;
+                    double qmin = elsys.GetNodesRowCol(i, 8)-qcons;
+                    double qmax = elsys.GetNodesRowCol(i, 9)-qcons;
+
+/*
+                    if (currentIterGeneratorType[i] == 2) {
+                        if (qimp == (qmax - qcons)) {
+                            if (elsys.GetNodesRowCol(i, 2) >= nominalVoltageType[i]) {
+                                currentIterGeneratorType[i] = 1;
+                                relativeUnitsSystem[2*elsys.NodesRowSize()+i] = nominalVoltageType[i];
+                            } else {
+                                currentIterGeneratorType[i] = 2;
+                            }
+                        } else {
+                            if (elsys.GetNodesRowCol(i, 2) <= nominalVoltageType[i]) {
+                                currentIterGeneratorType[i] = 1;
+                                relativeUnitsSystem[2*elsys.NodesRowSize()+i] = nominalVoltageType[i];
+                            } else {
+                                currentIterGeneratorType[i] = 2;
+                            }
+                        }
+                    } else if(currentIterGeneratorType[i]==1){
+*/
+                    int idx = 11 * elsys.NodesRowSize() + i;
+                    if (qdeb > qmax) {
+                        relativeUnitsSystem[idx] = qmax;
+                        currentIterGeneratorType[i] = 2;
+                    } else if(qdeb<qmin){
+                        relativeUnitsSystem[idx] = qmin;
+                        currentIterGeneratorType[i] = 2;
+                    } else {
+                        currentIterGeneratorType[i] = 1;
+                    }
+                    idx = 1*elsys.NodesRowSize()+i;
+                    relativeUnitsSystem[idx] = currentIterGeneratorType[i];
+                }
+
+            }
+            elsys.SetNodesData(relativeUnitsSystem,elsys.NodesRowSize(),elsys.NodesColSize());
+        }
+
+        /**end tratarea nodurilor generatoare **/
 
         std::vector<double> deltaP{}, deltaQ{}, deltaPQ{};
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
             deltaP.push_back(elsys.GetNodesRowCol(i, 10) - powerFlowData.activePower[i]);
             deltaQ.push_back(elsys.GetNodesRowCol(i, 11) - powerFlowData.reactivePower[i]);
         }
+
 
 
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
@@ -576,18 +636,44 @@ int main(const std::vector<std::vector<double>> &input,
             }
         }
         for (int i = 0; i < elsys.NodesRowSize(); i++) {
-            if (elsys.GetNodesCol(1)[i] == 2) {
-                double U = powerFlowData.voltage[i];
-                powerFlowData.voltage[i] += calculatedErrors[idx_plus] * U;
-                idx_plus++;
 
+            double qcons = elsys.GetNodesRowCol(i,6);
+            double qdeb = powerFlowData.reactivePower[i]+qcons;
+            double qmin = elsys.GetNodesRowCol(i, 8)-qcons;
+            double qmax = elsys.GetNodesRowCol(i, 9)-qcons;
+            double qimp = elsys.GetNodesRowCol(i,11);
+
+            if (elsys.GetNodesCol(1)[i] == 2) {
+                if(nominalGeneratorType[i]==2) {
+                    double U = powerFlowData.voltage[i];
+                    powerFlowData.voltage[i] += calculatedErrors[idx_plus] * U;
+                    idx_plus++;
+                }
+                if(nominalGeneratorType[i]==1){
+                    if(qimp == qmin){
+                        if(powerFlowData.voltage[i]<elsys.GetNodesRowCol(i,7)){
+                            currentIterGeneratorType[i]=1;
+                            powerFlowData.voltage[i]=elsys.GetNodesRowCol(i,7);
+                        }
+                    }
+                    if(qimp == qmax){
+                        if(powerFlowData.voltage[i]>elsys.GetNodesRowCol(i,7)){
+                            currentIterGeneratorType[i]=1;
+                            powerFlowData.voltage[i]=elsys.GetNodesRowCol(i,7);
+                        }
+                    }
+                }
+                relativeUnitsSystem[1*elsys.NodesRowSize()+i] = currentIterGeneratorType[i];
             } else {
                 powerFlowData.voltage[i] += 0.0;
             }
+
         }
+        elsys.SetNodesData(relativeUnitsSystem,elsys.NodesRowSize(),elsys.NodesColSize());
 
         info = std::to_string(step);
         LOG.Write(info);
+
 
         step++;
         if (step >= itermax) {
@@ -597,8 +683,6 @@ int main(const std::vector<std::vector<double>> &input,
             canStop = true;
         }
     }
-    info = "DEBUG END MAIN FUNCTION!";
-    LOG.Write(info);
 
     std::vector<double> pfResults;
     for (auto &i : powerFlowData.voltage) {
@@ -617,7 +701,7 @@ int main(const std::vector<std::vector<double>> &input,
     E_Matlab_Data_Structure outPfResults{(int) powerFlowData.voltage.size(), 4, pfResults};
     output.emplace_back(outPfResults);
 
-    info = "DEBUG END MAIN FUNCTION!";
+    info = "DEBUGG END  MAIN FUNCTION!";
     LOG.Write(info);
 
     return 0;
