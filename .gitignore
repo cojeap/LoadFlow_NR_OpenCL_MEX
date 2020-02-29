@@ -1,3 +1,7 @@
 #ignore
 
 LICENSE
+*.oct
+*.oct.*
+*.mex
+*.mex.*
