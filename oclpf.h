@@ -9,6 +9,4 @@
 #include "Data_Bank/Data_Bank.h"
 #include "Power_System/Power_System.h"
 
-
-
 #endif //OPENCL_POWERFLOW_MATLAB_INTERCONNECT_H

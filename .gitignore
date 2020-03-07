@@ -2,6 +2,6 @@
 
 LICENSE
 *.oct
-*.oct.*
+*.o
 *.mex
 *.mex.*
